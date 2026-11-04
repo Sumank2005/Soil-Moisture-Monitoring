@@ -1,5 +1,21 @@
 # SoilSense
 
+ESP32 soil moisture monitoring and irrigation dashboard with live readings, reading history, and online pump controls.
+
+**Live application:** [Open SoilSense](https://soilsense-ten-delta.vercel.app/)
+
+## Screenshots
+
+### Dashboard and pump controls
+
+![SoilSense dashboard showing live soil moisture, station health, and online pump controls](docs/screenshots/dashboard-overview.png)
+
+### Moisture history and recent readings
+
+![SoilSense moisture history chart, statistics, and recent sensor readings](docs/screenshots/moisture-history.png)
+
+## Local development
+
 Two independent applications. Each has its own package.json, package-lock.json, node_modules, environment configuration and deployment instructions. There is no root npm project or shared environment file.
 
 | Project | Local address | Instructions |
