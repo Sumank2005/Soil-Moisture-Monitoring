@@ -1,0 +1,5 @@
+import {createHmac,timingSafeEqual} from 'node:crypto';
+export function equal(a,b){if(typeof a!=='string'||typeof b!=='string')return false;const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y)}
+export function signSession(secret,now=Date.now()){const expiry=String(now+86400000);return `${expiry}.${createHmac('sha256',secret).update(expiry).digest('hex')}`}
+export function validSession(token,secret,now=Date.now()){if(typeof token!=='string')return false;const [expiry,sig,...rest]=token.split('.');if(rest.length||!/^\d+$/.test(expiry)||Number(expiry)<=now||Number(expiry)>now+86400000)return false;return equal(sig,createHmac('sha256',secret).update(expiry).digest('hex'))}
+export function sessionFrom(req,secret){const authorization=req.headers.authorization;if(authorization?.startsWith('Bearer '))return validSession(authorization.slice(7),secret);const cookie=req.headers.cookie?.split(';').map(x=>x.trim()).find(x=>x.startsWith('soilsense_session='));return validSession(cookie?.slice('soilsense_session='.length),secret)}

@@ -1,16 +1,36 @@
 # SoilSense
-Private live ESP32 soil-monitoring dashboard and device firmware.
 
-## Device setup
-Use the Connect device button on the deployed dashboard. Download SoilSense_ESP32.ino, trust_roots.h and the authenticated config.h download into one Arduino sketch folder named SoilSense_ESP32. Only edit Wi-Fi name/password in config.h; never commit it. Board: ESP32 Dev Module (classic dual-core WROOM). Libraries: Adafruit SSD1306 and Adafruit GFX plus dependencies. Baud: 115200.
+Two independent applications. Each has its own package.json, package-lock.json, node_modules, environment configuration and deployment instructions. There is no root npm project or shared environment file.
 
-Power-on connects to 2.4 GHz Wi-Fi and reconnects automatically. Verified HTTPS uploads every 10s run on a separate FreeRTOS task so pump timing remains independent of network delays. Clock sync uses NTP. Payloads contain no Wi-Fi credentials. Failed uploads are not queued; the latest current sample is sent after reconnect. HTTP 200 means saved. No remote control.
+| Project | Local address | Instructions |
+| --- | --- | --- |
+| React TSX frontend | http://localhost:5173 | [frontend/README.md](frontend/README.md) |
+| Express + Neon backend | http://localhost:3001 | [backend/README.md](backend/README.md) |
 
-Existing wiring: sensor AO GPIO34, OLED SDA21/SCL22 (3.3V, SSD1306 128x64 at 0x3C); GPIO26 through 1k to BC548 base; emitter ground, collector relay IN, 10k base-emitter. Relay VCC 5V. Common ground. Keep tested decoupling capacitors and motor diode. Do not supply ESP32 VIN from a converter while laptop USB also supplies it.
+Start them in two terminals:
 
-Calibration 3130/1450 is air/water-relative, not volumetric soil water content. Pump on <=30%, off >=55%, max continuous 10s then latched OFF until local reset. Display pump value is the commanded state; no flow feedback is measured. Basic rail sensor checks cannot detect every fault.
+```sh
+# Terminal 1
+cd backend
+npm install
+npm run dev
+```
 
-## Server
-Owner-private Sites gate authorizes device upload via existing service bearer header. Ingest does not grant access to browser-only history/config APIs. Config provisioned by owner-only, no-store download using a Sites runtime secret; it is never stored in source. History in D1 retains 7 days and is cleaned on uploads. GET /api/readings returns bounded chart buckets, summary and last 20 readings; export is the latest 20 samples in selected window. Device offline after 45s; old values explicitly labelled stale.
+```sh
+# Terminal 2
+cd frontend
+npm install
+npm run dev
+```
 
-DB migration files are generated with npm run db:generate. Runtime secret: ESP_SERVICE_TOKEN. Do not log this value. If access audience changes, revisit ingest authorization.
+Sign in using DASHBOARD_PASSWORD in **backend/.env**. Existing local credentials were preserved. The frontend uses **frontend/.env.local** only for its public VITE_API_URL. Dashboard sessions use Bearer tokens, so sign-in works across separate frontend/backend hosts without relying on shared cookies. Backend connection and sign-in failures are displayed on the login screen.
+
+For separate deployments, set the hosting root to **frontend** for the web project and **backend** for the API service. Follow each folder's README. The frontend builds to frontend/dist; the backend starts with npm start and never serves the frontend.
+
+## ESP32
+
+The configured sketch is **firmware/SoilSense_ESP32/SoilSense_ESP32.ino**. The root config.h preserves your Wi-Fi credentials and points directly to **http://192.168.1.7:3001/api/ingest**. Device uploads operate with the frontend stopped. Computer and ESP32 must share the LAN; the backend must be reachable on TCP 3001. The sketch was compiled successfully for ESP32 Dev Module; it has not been flashed.
+
+If the backend address or device token changes, update **backend/.env** and run `npm run firmware:configure` from the backend directory, then upload the refreshed sketch. Root .ino/trust_roots.h files are the firmware source; the utility synchronizes the Arduino folder and frontend public downloads. Private config.h files are excluded from Git.
+
+Local HTTP uploads do not require internet time sync. Hosted HTTPS retains certificate verification; update trust_roots.h to match the hosting certificate authority if needed. Pump control stays local with the existing pins, 30%/55% hysteresis, startup delay and ten-second cutoff. Recalibrate the sensor in actual soil.

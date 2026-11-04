@@ -1,0 +1,20 @@
+import '../src/config.js';
+import {readFile,writeFile,mkdir,copyFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
+const root=fileURLToPath(new URL('../../',import.meta.url));
+const backend=new URL(process.env.BACKEND_URL||'http://localhost:3001');
+if(!['http:','https:'].includes(backend.protocol))throw Error('BACKEND_URL must use http or https');
+if(['localhost','127.0.0.1','[::1]'].includes(backend.hostname))throw Error('Set BACKEND_URL to the computer LAN IP or hosted backend domain before configuring the ESP32.');
+const token=process.env.DEVICE_TOKEN;
+if(!token||token.length<32)throw Error('DEVICE_TOKEN must contain at least 32 characters.');
+const path=resolve(root,'config.h');
+let content=await readFile(path,'utf8');
+if(!/const char UPLOAD_URL\[\]\s*=/.test(content)||!/const char (?:SITE_TOKEN|DEVICE_TOKEN)\[\]\s*=/.test(content))throw Error('config.h must declare UPLOAD_URL and DEVICE_TOKEN (or SITE_TOKEN).');
+content=content.replace(/const char UPLOAD_URL\[\]\s*=\s*"[^"\r\n]*";/,`const char UPLOAD_URL[] = ${JSON.stringify(backend.origin+'/api/ingest')};`).replace(/const char (?:SITE_TOKEN|DEVICE_TOKEN)\[\]\s*=\s*"[^"\r\n]*";/,`const char DEVICE_TOKEN[] = ${JSON.stringify(token)};`);
+await writeFile(path,content);
+const folder=resolve(root,'firmware/SoilSense_ESP32');await mkdir(folder,{recursive:true});
+for(const name of ['SoilSense_ESP32.ino','trust_roots.h','config.h'])await copyFile(resolve(root,name),resolve(folder,name));
+for(const name of ['SoilSense_ESP32.ino','trust_roots.h'])await copyFile(resolve(root,name),resolve(root,'frontend/public/firmware',name));
+console.log(`Firmware configured for ${backend.origin}/api/ingest. Existing Wi-Fi credentials preserved. Ready sketch: firmware/SoilSense_ESP32/SoilSense_ESP32.ino`);
+

@@ -47,3 +47,8 @@ yarn-error.log*
 # Local device credentials
 config.h
 **/config.h
+
+!.env.example
+**/node_modules/
+**/dist/
+.qa/
