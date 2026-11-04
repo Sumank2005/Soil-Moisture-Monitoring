@@ -31,6 +31,18 @@ For deployment: choose **backend** as the service root, run `npm ci`, run `npm r
 
 Dashboard routes accept a signed Bearer session token, allowing frontend and API deployments on different domains. `/api/ingest` independently requires the ESP32 DEVICE_TOKEN. Requests from browser origins other than FRONTEND_ORIGIN are rejected. Local development also accepts localhost/127.0.0.1 aliases on port 5173.
 
-`GET /api/health` verifies database connectivity. `npm test` checks auth, cookie-independent Bearer sessions, CORS, telemetry validation, config downloads and payload limits. `npm run test:db` checks real Neon storage in an isolated, rolled-back transaction. No demo data is seeded.
+`GET /api/health` verifies database connectivity and reports worker progress. `npm test` checks authentication, validation, queue failure handling, bounded concurrency, batch rollback and dashboard caching. `npm run test:db` checks durable enqueue and batch processing in temporary Neon tables inside a rolled-back transaction. No demo data is seeded.
+
+## Upload queue and worker
+
+The ESP endpoint, token and firmware stay unchanged. A successful upload is acknowledged with HTTP 200 only after its validated payload is committed to the Neon inbox (`soilsense_ingest_queue`). The response includes `queued: true`. Duplicate boot/sequence pairs return `duplicate: true` without adding another inbox entry. The request no longer opens a transaction or runs retention cleanup.
+
+`npm start` automatically starts a background Node worker thread alongside Express. No separate hosting service, Redis account or frontend configuration is required. The worker checks the inbox every five seconds, locks up to 100 entries with `FOR UPDATE SKIP LOCKED`, inserts the batch into readings, and removes completed inbox entries in one transaction. Multiple worker instances can claim different batches safely. A crash before commit rolls the batch back; unfinished entries survive restarts. Final-table uniqueness also makes replay idempotent.
+
+The worker drains up to ten batches per cycle, yields between cycles, and backs off up to 60 seconds on database failure. The API and worker use at most five PostgreSQL connections combined per backend instance. Uploads retain the existing 30/minute per-IP rate limit; a separate 32-request in-flight cap returns HTTP 503 with Retry-After rather than accumulating an unbounded in-memory queue. No accepted samples are discarded or downsampled. Queueing smooths processing bursts; sustained traffic still requires database capacity for the durable inbox writes and retained readings.
+
+Dashboard results are cached for 15 seconds per history window. Concurrent cache misses share one load, and failed loads are retried. Queued readings normally reach the dashboard within approximately 20 seconds (worker delay plus cache age). Seven-day retention cleanup runs every six hours in the worker, instead of on every upload. Cleanup can therefore retain up to six additional hours until the next run.
+
+On startup the API idempotently creates the inbox table before accepting requests; `npm run db:migrate` also applies the queue migration. Graceful shutdown stops receiving requests, finishes the current worker transaction and closes both database pools. Worker crashes trigger a restart; health checks return HTTP 503 if the worker is not progressing.
 
 For firmware configuration in the complete local repository, update BACKEND_URL and run `npm run firmware:configure` from this backend folder. This optional utility updates the root config.h, preserves existing Wi-Fi credentials, and synchronizes firmware/SoilSense_ESP32. It is not invoked by the backend runtime and is not needed for backend deployment.
