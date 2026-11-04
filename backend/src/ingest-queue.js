@@ -2,6 +2,7 @@ import {readFile} from 'node:fs/promises';
 
 export async function ensureQueue(pool) {
  await pool.query(await readFile(new URL('../migrations/002_ingest_queue.sql',import.meta.url),'utf8'));
+ await pool.query(await readFile(new URL('../migrations/003_device_control.sql',import.meta.url),'utf8'));
 }
 
 export async function enqueueReading(pool,payload,receivedAt) {

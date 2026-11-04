@@ -4,10 +4,11 @@ import {rateLimit} from 'express-rate-limit';
 import {equal,sessionFrom,signSession} from './auth.js';
 import {telemetrySchema} from './telemetry.js';
 import {enqueueReading,createReadCache} from './ingest-queue.js';
+import {recordDeviceState,getControl,queueCommand} from './device-control.js';
 const numeric=['received_at','seq','raw','moisture','pump','sensor_fault','timeout_fault','rssi','uptime','dry_raw','wet_raw','on_percent','off_percent'];
 function reading(row){if(!row)return null;const result={...row};for(const c of numeric)result[c]=Number(result[c]);delete result.id;delete result.boot_id;return result}
 export function createApp({pool,config,workerStatus}){
- const cachedRead=createReadCache();let uploadsInFlight=0;
+ const cachedRead=createReadCache(),cachedControl=createReadCache(2000);let uploadsInFlight=0;
  const app=express();app.disable('x-powered-by');if(config.trustProxy)app.set('trust proxy',1);
  app.use(helmet({contentSecurityPolicy:{directives:{'style-src':["'self'","'unsafe-inline'",'https://fonts.googleapis.com'],'font-src':["'self'",'https://fonts.gstatic.com'],'script-src':["'self'"],'img-src':["'self'",'data:']}}}));
  app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next()});
@@ -31,7 +32,12 @@ export function createApp({pool,config,workerStatus}){
   const parsed=telemetrySchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({error:'Invalid telemetry'});
   if(uploadsInFlight>=32)return res.set('Retry-After','5').status(503).json({error:'Upload capacity reached. Retry shortly.'});
   const now=Date.now();uploadsInFlight++;
-  try{const added=await enqueueReading(pool,parsed.data,now);res.json({ok:true,queued:added,duplicate:!added,received_at:now})}finally{uploadsInFlight--}
+  try{const added=await enqueueReading(pool,parsed.data,now);const command=await recordDeviceState(pool,parsed.data,now);if(command){res.set('X-SoilSense-Command-Id',command.id);res.set('X-SoilSense-Action',command.action);res.set('X-SoilSense-Expires-Ms',String(command.expires_in_ms))}res.json({ok:true,queued:added,duplicate:!added,received_at:now,command})}finally{uploadsInFlight--}
+ });
+ app.get('/api/control',requireOwner,async(_req,res)=>res.json(await cachedControl('device',()=>getControl(pool))));
+ app.post('/api/control',requireOwner,rateLimit({windowMs:60000,limit:20,standardHeaders:'draft-8',legacyHeaders:false}),async(req,res)=>{
+  if(!req.body||Object.keys(req.body).length!==1||!['on','off','auto','reset'].includes(req.body.action))return res.status(400).json({error:'Choose on, off, auto or reset.'});
+  const result=await queueCommand(pool,req.body.action);res.status(result.ok?202:409).json(result);
  });
  app.get('/api/readings',requireOwner,async(req,res)=>{
   const hours=Number(req.query.hours??6);if(![1,6,24].includes(hours))return res.status(400).json({error:'hours must be 1, 6 or 24'});

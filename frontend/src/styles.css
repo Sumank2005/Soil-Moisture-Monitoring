@@ -5,3 +5,5 @@
 
 
 .download-row .firmware-download{display:flex;gap:5px;align-items:center;border:1px solid #dbe4ce;border-radius:5px;font-size:10px;padding:8px;color:#5f7e47;background:#f3f6ed}
+
+.pump-controls{padding:22px 26px;margin-bottom:22px}.control-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.control-buttons button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:7px;font-size:11px;font-weight:600}.control-buttons small{font-size:9px;opacity:.75}.control-off{background:#f8ede8;color:#8b4f39;border:1px solid #ead8cf}.control-secondary{background:#f7f9f3;color:#536e45;border:1px solid #dfe6d7}.control-note{font-size:10px;margin:16px 0 0;max-width:780px}.command-feedback{display:flex;align-items:center;gap:7px;font-size:11px;color:#426b42;margin:16px 0 0}.command-error{color:#946036}.profile>span svg{margin:0;color:var(--green)}@media(max-width:600px){.pump-controls{padding:20px 16px}.pump-controls .section-top{align-items:start}.control-buttons{display:grid;grid-template-columns:1fr 1fr}.control-buttons button{padding:12px 8px}.control-buttons small{display:none}}

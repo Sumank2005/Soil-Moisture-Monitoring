@@ -12,7 +12,7 @@ test('production accepts the deployed Vercel origin and rejects unrelated sites'
 });
 test('API authentication, validation, durable enqueue and deduplication',async t=>{
  let inserted=false;const queries=[];
- const client={query:async(sql,args)=>{queries.push([sql,args]);if(sql.startsWith('INSERT')){const count=inserted?0:1;inserted=true;return {rowCount:count}}return {rows:[]}},release(){}};
+ const client={query:async(sql,args)=>{queries.push([sql,args]);if(sql.startsWith('INSERT INTO public.soilsense_ingest_queue')){const count=inserted?0:1;inserted=true;return {rowCount:count,rows:[]}}return {rows:[]}},release(){}};
  const pool={connect:async()=>client,query:client.query};
  const server=createApp({pool,config}).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>new Promise(r=>server.close(r)));
  const base=`http://127.0.0.1:${server.address().port}`;
@@ -34,7 +34,7 @@ test('API authentication, validation, durable enqueue and deduplication',async t
  assert.equal((await send(payload,'wrong')).status,401);assert.equal(queries.length,0);
  for(const invalid of [{...payload,moisture:101},{...payload,pump:1},{...payload,threshold_off:20},{...payload,unexpected:true}])assert.equal((await send(invalid)).status,400);
  assert.equal((await send(payload)).status,200);assert.equal((await (await send(payload)).json()).duplicate,true);
- const insert=queries.find(([sql])=>sql.startsWith('INSERT'));assert.match(insert[0],/soilsense_ingest_queue/);assert.equal(JSON.parse(insert[1][3]).raw,2300);assert.equal(queries.length,2);assert.ok(!queries.some(([sql])=>sql==='BEGIN'||sql.startsWith('DELETE')));
+ const insert=queries.find(([sql])=>sql.startsWith('INSERT'));assert.match(insert[0],/soilsense_ingest_queue/);assert.equal(JSON.parse(insert[1][3]).raw,2300);assert.equal(queries.length,4);assert.ok(!queries.some(([sql])=>sql==='BEGIN'||sql.startsWith('DELETE')));
  assert.equal((await fetch(base+'/api/readings?hours=bad',{headers:{cookie}})).status,400);
  assert.equal((await fetch(base+'/api/logout',{method:'POST',headers:{Origin:'https://other.example'}})).status,403);
  assert.equal((await fetch(base+'/api/ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:'{'})).status,400);

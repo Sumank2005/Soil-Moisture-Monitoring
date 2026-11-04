@@ -35,7 +35,7 @@ Dashboard routes accept a signed Bearer session token, allowing frontend and API
 
 ## Upload queue and worker
 
-The ESP endpoint, token and firmware stay unchanged. A successful upload is acknowledged with HTTP 200 only after its validated payload is committed to the Neon inbox (`soilsense_ingest_queue`). The response includes `queued: true`. Duplicate boot/sequence pairs return `duplicate: true` without adding another inbox entry. The request no longer opens a transaction or runs retention cleanup.
+The ESP endpoint and token stay unchanged. A successful upload is acknowledged with HTTP 200 only after its validated payload is committed to the Neon inbox (`soilsense_ingest_queue`) and its live device state is recorded. This uses one enqueue statement and one state upsert. The response includes `queued: true`. Duplicate boot/sequence pairs return `duplicate: true` without adding another inbox entry. The request no longer opens a transaction or runs retention cleanup.
 
 `npm start` automatically starts a background Node worker thread alongside Express. No separate hosting service, Redis account or frontend configuration is required. The worker checks the inbox every five seconds, locks up to 100 entries with `FOR UPDATE SKIP LOCKED`, inserts the batch into readings, and removes completed inbox entries in one transaction. Multiple worker instances can claim different batches safely. A crash before commit rolls the batch back; unfinished entries survive restarts. Final-table uniqueness also makes replay idempotent.
 
@@ -44,5 +44,13 @@ The worker drains up to ten batches per cycle, yields between cycles, and backs 
 Dashboard results are cached for 15 seconds per history window. Concurrent cache misses share one load, and failed loads are retried. Queued readings normally reach the dashboard within approximately 20 seconds (worker delay plus cache age). Seven-day retention cleanup runs every six hours in the worker, instead of on every upload. Cleanup can therefore retain up to six additional hours until the next run.
 
 On startup the API idempotently creates the inbox table before accepting requests; `npm run db:migrate` also applies the queue migration. Graceful shutdown stops receiving requests, finishes the current worker transaction and closes both database pools. Worker crashes trigger a restart; health checks return HTTP 503 if the worker is not progressing.
+
+## Online pump controls
+
+Owner-authenticated `GET /api/control` reports live firmware capability, mode, faults and the latest command acknowledgement. Concurrent reads share a two-second cache. `POST /api/control` accepts exactly `{ "action": "on" | "off" | "auto" | "reset" }`, rate limited to 20/minute. It requires a capable device seen within 45 seconds. ON and Auto are rejected during sensor faults or timeout locks. OFF can replace a pending command; other commands wait for acknowledgement or expiry.
+
+Commands are stored in a single-device durable mailbox, expire after 30 seconds and target the current boot ID. Upload responses carry the pending command in JSON and `X-SoilSense-Command-Id`, `X-SoilSense-Action`, `X-SoilSense-Expires-Ms` headers. Firmware applies commands on its local control loop and acknowledges the ID/result in a later upload. Queued means accepted by the server; only `applied` means confirmed by the ESP. A boot change expires pending commands. Duplicate delivery does not restart the motor timer or reset a later timeout.
+
+Updated firmware is required once. Legacy firmware continues uploading normally and the UI explains why controls are unavailable. Reset clears the timeout latch into manual OFF rather than rebooting the ESP. The ten-second runtime limit and sensor protections remain active in all modes. Password sign-in is shared access to one station; no named user profile is implied.
 
 For firmware configuration in the complete local repository, update BACKEND_URL and run `npm run firmware:configure` from this backend folder. This optional utility updates the root config.h, preserves existing Wi-Fi credentials, and synchronizes firmware/SoilSense_ESP32. It is not invoked by the backend runtime and is not needed for backend deployment.
