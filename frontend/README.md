@@ -16,6 +16,8 @@ Open http://127.0.0.1:5173 or http://localhost:5173. Start the API separately. F
 
 Use only the backend origin, without `/api` at the end. This variable is public and is embedded at build time. Never put database credentials or device/password secrets here.
 
+Production is configured for **https://soilsense-ten-delta.vercel.app** with API **https://soilsense-gz6h.onrender.com**. The public `.env.production` is tracked; a leftover HTTP localhost setting is ignored in production builds. In Vercel, set the project Root Directory to **frontend**. The included vercel.json declares the Vite build, dist output and SPA fallback.
+
 For deployment: set VITE_API_URL in the frontend hosting environment, use `npm ci` and `npm run build`, and publish **frontend/dist** (or just **dist** when the hosting root is frontend). Configure SPA fallback to index.html. Set backend FRONTEND_ORIGIN to this frontend origin. There is no API proxy or shared runtime configuration.
 
 Dashboard sign-in uses a signed session token in tab-local sessionStorage and sends it in the Authorization header. It does not depend on cookies being shared between domains or between localhost and 127.0.0.1. Closing the tab ends that local session. Device config downloads also use the authenticated API client.

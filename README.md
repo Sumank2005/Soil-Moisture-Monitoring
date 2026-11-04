@@ -29,7 +29,7 @@ For separate deployments, set the hosting root to **frontend** for the web proje
 
 ## ESP32
 
-The configured sketch is **firmware/SoilSense_ESP32/SoilSense_ESP32.ino**. The root config.h preserves your Wi-Fi credentials and points directly to **http://192.168.1.7:3001/api/ingest**. Device uploads operate with the frontend stopped. Computer and ESP32 must share the LAN; the backend must be reachable on TCP 3001. The sketch was compiled successfully for ESP32 Dev Module; it has not been flashed.
+The configured sketch is **firmware/SoilSense_ESP32/SoilSense_ESP32.ino**. The root config.h preserves your Wi-Fi credentials and points directly to **https://soilsense-gz6h.onrender.com/api/ingest**. Device uploads go to Render over verified HTTPS and operate independently of the frontend and local computer. ESP32 needs internet access. The dashboard is deployed at **https://soilsense-ten-delta.vercel.app**. Upload the regenerated matching firmware files after changing the endpoint.
 
 If the backend address or device token changes, update **backend/.env** and run `npm run firmware:configure` from the backend directory, then upload the refreshed sketch. Root .ino/trust_roots.h files are the firmware source; the utility synchronizes the Arduino folder and frontend public downloads. Private config.h files are excluded from Git.
 

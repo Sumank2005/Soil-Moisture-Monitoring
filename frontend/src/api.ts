@@ -1,4 +1,9 @@
-const configured = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const productionApi = 'https://soilsense-gz6h.onrender.com';
+const requested = import.meta.env.VITE_API_URL?.trim();
+// A localhost value carried over from local setup cannot work on Vercel.
+const configured = import.meta.env.PROD
+  ? (requested?.startsWith('https://') ? requested : productionApi)
+  : (requested || 'http://localhost:3001');
 export const API_BASE = configured.replace(/\/$/, '');
 const SESSION_KEY = 'soilsense.session';
 export function saveSession(token: string) { sessionStorage.setItem(SESSION_KEY, token); }

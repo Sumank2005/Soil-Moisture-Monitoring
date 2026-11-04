@@ -49,6 +49,7 @@ config.h
 **/config.h
 
 !.env.example
+!/frontend/.env.production
 **/node_modules/
 **/dist/
 .qa/

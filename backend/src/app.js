@@ -6,10 +6,11 @@ import {telemetrySchema} from './telemetry.js';
 const numeric=['received_at','seq','raw','moisture','pump','sensor_fault','timeout_fault','rssi','uptime','dry_raw','wet_raw','on_percent','off_percent'];
 function reading(row){if(!row)return null;const result={...row};for(const c of numeric)result[c]=Number(result[c]);delete result.id;delete result.boot_id;return result}
 export function createApp({pool,config}){
- const app=express();app.disable('x-powered-by');if(process.env.TRUST_PROXY==='1')app.set('trust proxy',1);
+ const app=express();app.disable('x-powered-by');if(config.trustProxy)app.set('trust proxy',1);
  app.use(helmet({contentSecurityPolicy:{directives:{'style-src':["'self'","'unsafe-inline'",'https://fonts.googleapis.com'],'font-src':["'self'",'https://fonts.gstatic.com'],'script-src':["'self'"],'img-src':["'self'",'data:']}}}));
  app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next()});
  const origins=new Set([config.origin]);if(!config.production&&['http://localhost:5173','http://127.0.0.1:5173'].includes(config.origin)){origins.add('http://localhost:5173');origins.add('http://127.0.0.1:5173')}
+ if(config.production)origins.add('https://soilsense-ten-delta.vercel.app');
  app.use('/api',(req,res,next)=>{
   const origin=req.headers.origin;
   if(origin&&!origins.has(origin))return res.status(403).json({error:'Origin not allowed'});

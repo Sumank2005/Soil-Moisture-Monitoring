@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
+const path=new URL('../src/config.js',import.meta.url).href;
+function settings(overrides){const child=spawnSync(process.execPath,['--input-type=module','-e',`const {config}=await import(${JSON.stringify(path)});console.log(JSON.stringify({origin:config.origin,backendUrl:config.backendUrl,production:config.production,trustProxy:config.trustProxy}));`],{encoding:'utf8',env:{...process.env,DATABASE_URL:'postgresql://test:test@localhost/test',DASHBOARD_PASSWORD:'test-password',SESSION_SECRET:'s'.repeat(64),DEVICE_TOKEN:'d'.repeat(64),NODE_ENV:'production',RENDER:'true',FRONTEND_ORIGIN:'http://localhost:5173',BACKEND_URL:'http://192.168.1.7:3001',RENDER_EXTERNAL_URL:'https://soilsense-gz6h.onrender.com',...overrides}});assert.equal(child.status,0,child.stderr);return JSON.parse(child.stdout)}
+test('Render replaces local development URLs with public HTTPS deployment URLs',()=>{assert.deepEqual(settings({}),{origin:'https://soilsense-ten-delta.vercel.app',backendUrl:'https://soilsense-gz6h.onrender.com',production:true,trustProxy:true})});
+test('production normalizes explicitly configured HTTPS origins',()=>{const c=settings({FRONTEND_ORIGIN:'https://soilsense-ten-delta.vercel.app/',BACKEND_URL:'https://api.example.com/',RENDER_EXTERNAL_URL:''});assert.equal(c.origin,'https://soilsense-ten-delta.vercel.app');assert.equal(c.backendUrl,'https://api.example.com')});

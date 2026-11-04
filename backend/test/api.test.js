@@ -5,6 +5,11 @@ import {signSession,validSession} from '../src/auth.js';
 const config={password:'test-password',sessionSecret:'s'.repeat(64),deviceToken:'d'.repeat(64),origin:'http://localhost:5173',backendUrl:'http://192.168.1.7:3001',production:false};
 const payload={boot_id:'abcddcba-12345678',seq:1,raw:2300,moisture:49,pump:false,sensor_fault:false,timeout_fault:false,rssi:-62,uptime_s:60,dry_raw:3130,wet_raw:1450,threshold_on:30,threshold_off:55};
 test('sessions reject tampering, expiration and wrong secrets',()=>{const token=signSession(config.sessionSecret,1000);assert.equal(validSession(token,config.sessionSecret,1001),true);assert.equal(validSession(token,'wrong',1001),false);assert.equal(validSession(token,config.sessionSecret,86401000),false);assert.equal(validSession(token+'x',config.sessionSecret,1001),false)});
+test('production accepts the deployed Vercel origin and rejects unrelated sites',async t=>{
+ const server=createApp({pool:{},config:{...config,production:true,origin:'https://previous.example.com'}}).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>new Promise(r=>server.close(r)));const base=`http://127.0.0.1:${server.address().port}`;
+ const allowed=await fetch(base+'/api/session',{headers:{Origin:'https://soilsense-ten-delta.vercel.app'}});assert.equal(allowed.status,200);assert.equal(allowed.headers.get('access-control-allow-origin'),'https://soilsense-ten-delta.vercel.app');
+ assert.equal((await fetch(base+'/api/session',{headers:{Origin:'https://unrelated.example.com'}})).status,403);
+});
 test('API authentication, validation, persistence and deduplication',async t=>{
  let inserted=false;const queries=[];
  const client={query:async(sql,args)=>{queries.push([sql,args]);if(sql.startsWith('INSERT')){const count=inserted?0:1;inserted=true;return {rowCount:count}}return {rows:[]}},release(){}};

@@ -11,6 +11,8 @@ npm run dev
 
 The API listens on port 3001. Use `npm start` in production. This service does not build or serve the frontend.
 
+The production API is **https://soilsense-gz6h.onrender.com**, and its frontend is **https://soilsense-ten-delta.vercel.app**. On Render, use Root Directory **backend**, Build Command **npm ci**, Start Command **npm start**, and health path **/api/health**. Set FRONTEND_ORIGIN to the Vercel origin and BACKEND_URL to the Render origin. Local HTTP values accidentally copied to production fall back to these public HTTPS origins; Render's own RENDER_EXTERNAL_URL takes precedence for device downloads. The known Vercel production origin is explicitly allowed by CORS. The Render runtime enables trust for one reverse-proxy hop.
+
 Copy `.env.example` to `.env` for a new checkout, or configure the variables directly on the backend host. The existing local `.env` preserves your database, dashboard password, device token and session secret. The loader resolves this file relative to the backend folder, independently of the current working directory.
 
 | Backend environment variable | Purpose |
